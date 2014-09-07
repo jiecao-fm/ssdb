@@ -1,7 +1,7 @@
 ssdb
 ====
 
-ssdb clien for go
+ssdb client for go
 
 sample
 ====
@@ -10,6 +10,7 @@ package main
 import (
 	"fmt"
 	"time"
+	"github.com/jiecao-fm/ssdb"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 )
 
 func main(){
-  db, err := Connect("jiecao-tucao", 8888, conn_timeout, read_timeout, write_timeout)
+  db, err := ssdb.Connect("jiecao-tucao", 8888, conn_timeout, read_timeout, write_timeout)
 	if err != nil {
 		fmt.Printf("connect to server failed:\n%v", err)
 		return
