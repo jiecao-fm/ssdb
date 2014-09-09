@@ -5,13 +5,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
-	"time"
-)
-
-var (
-	conn_timeout  time.Duration = 15 * time.Second
-	read_timeout  time.Duration = 180 * time.Second
-	write_timeout time.Duration = 0
 )
 
 func TestGetSet(t *testing.T) {

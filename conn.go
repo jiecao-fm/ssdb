@@ -4,6 +4,7 @@ package ssdb
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -30,12 +31,21 @@ func (c *conn) Err() error {
 }
 
 func (c *conn) Do(cmd string, args []interface{}) (rsp []bytes.Buffer, err error) {
+	if c.Err() != nil {
+		return make([]bytes.Buffer, 0), errors.New("broken")
+	}
 	err = c.Send(cmd, args[:])
 	if err != nil {
+		c.err = err
+		c.connected = false
 		return nil, err
 	}
-	c.Flush()
-	return c.Receive()
+	c.err = c.Flush()
+	if c.err != nil {
+		return make([]bytes.Buffer, 0), c.err
+	}
+	rsp, c.err = c.Receive()
+	return rsp[:], c.err
 }
 
 func (c *conn) Send(cmd string, args []interface{}) error {

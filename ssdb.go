@@ -109,8 +109,28 @@ func Connect(host string, port int, conntimeout, readtimeout, writetimeout time.
 	return &SSDB{conn: conn}, err
 }
 
+func New(host string, port int, conntimeout, readtimeout, writetimeout time.Duration) (*SSDB, error) {
+
+	return &SSDB{}, nil
+}
+
 type SSDB struct {
-	conn Conn
+	conn         Conn
+	host         string
+	port         int
+	readtimeout  time.Duration
+	writetimeout time.Duration
+	conntimeout  time.Duration
+}
+
+func (db *SSDB) Connect() error {
+	if db.conn != nil && db.conn.Err() == nil {
+		db.conn.Close()
+	}
+	conn, err := connect(db.host, db.port, db.conntimeout, db.readtimeout, db.writetimeout)
+	db.conn = conn
+	return err
+
 }
 
 func (db *SSDB) Close() {
@@ -120,7 +140,7 @@ func (db *SSDB) Close() {
 func (db *SSDB) Set(key string, value string) error {
 	resp, err := db.conn.Do("set", []interface{}{key, value})
 	if resp[0].String() != "ok" {
-		fmt.Println("set failed")
+		fmt.Printf("%s\n", resp[0].String())
 	}
 	return err
 }
@@ -135,10 +155,15 @@ func (db *SSDB) MultiSet(kvs []string) (bool, error) {
 
 func (db *SSDB) Get(key string) (string, error) {
 	resp, err := db.conn.Do("get", []interface{}{key})
-	if resp[0].String() != "ok" {
-		fmt.Println("set failed")
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return "", err
 	}
-	return resp[1].String(), err
+	if resp[0].String() != "ok" {
+		fmt.Printf("get failed,%s\n", resp[0].String())
+
+	}
+	return StringValue(resp)
 }
 
 func (db *SSDB) MultiGet(keys []string) (map[string]string, error) {
