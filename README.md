@@ -42,6 +42,7 @@ import (
 	"sync"
 	"testing"
 )
+func main(){
 count := 3
 	g := sync.WaitGroup{}
 	g.Add(count)
@@ -75,4 +76,5 @@ count := 3
 		}()
 	}
 	g.Wait()
+}
 ```
