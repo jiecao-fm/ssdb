@@ -85,11 +85,13 @@ func (pool *SSDBPool) checkone() time.Time {
 		pool.idlelist.Remove(ele)
 		if err == nil {
 			pool.idlelist.PushBack(db)
+			db.last_check_time=time.Now()
+			return t
 		} else {
 			pool.idlecount = pool.idlecount - 1
+			pool.totalcount=pool.totalcount-1
+			return db.last_check_time.Add(-1*check_duration)
 		}
-		return t
-
 	}
 	return time.Now()
 }
@@ -171,4 +173,5 @@ func (pool *SSDBPool) TotalCount() int {
 	return pool.totalcount
 }
 func (pool *SSDBPool) Close() {
+	
 }
