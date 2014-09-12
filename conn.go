@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+
 	//"encoding/binary"
 )
 
@@ -152,14 +153,19 @@ func (c *conn) Receive() (res []bytes.Buffer, err error) {
 		if er != nil {
 			return nil, er
 		}
-		dataBytes := make([]byte, size)
-		count, er := c.reader.Read(dataBytes)
-		if count != size {
-			fmt.Println("read count != count")
-			return nil, nil
-		}
+		//		dataBytes := make([]byte, size)
+		//		count, er := c.reader.Read(dataBytes)
+		//		if count != size {
+		//			fmt.Println("read count != count")
+		//			left:=size-count
+		//			buf:=make([]byte,left)
+		//			readFully(c.reader)
+		//
+		//			return nil, nil
+		//		}
 		var dataBuf bytes.Buffer
-		dataBuf.Write(dataBytes)
+		//		dataBuf.Write(dataBytes)
+		readFully(c.reader, size, &dataBuf)
 		bufArray = append(bufArray, dataBuf)
 		//		fmt.Println(string(dataBuf))
 		for b, er := c.reader.ReadByte(); b != '\n'; b, er = c.reader.ReadByte() {
@@ -172,4 +178,16 @@ func (c *conn) Receive() (res []bytes.Buffer, err error) {
 	//never execute here
 	fmt.Printf("buf size:%d\n", len(bufArray))
 	return bufArray[0:], nil
+}
+
+func readFully(reader *bufio.Reader, size int, buffer *bytes.Buffer) {
+	buf := make([]byte, size)
+	count, _ := reader.Read(buf)
+	if count == size {
+		buffer.Write(buf)
+		return
+	} else {
+		buffer.Write(buf[:count-1])
+		readFully(reader, size-count, buffer)
+	}
 }

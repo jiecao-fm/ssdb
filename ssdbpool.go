@@ -3,7 +3,6 @@ package ssdb
 import (
 	"container/list"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -76,7 +75,6 @@ func NewPool(pc PoolConfig) (*SSDBPool, error) {
 func (pool *SSDBPool) checkone() time.Time {
 	lock.Lock()
 	defer lock.Unlock()
-	fmt.Printf(" in check\n")
 	ele := pool.idlelist.Front()
 	if ele != nil {
 		db := ele.Value.(*DBWrapper)
@@ -134,6 +132,7 @@ func (pool *SSDBPool) GetDB() (*DBWrapper, error) {
 	}
 }
 
+
 func (pool *SSDBPool) incr(incr_count int, heldlock bool) error {
 	if !heldlock {
 		lock.Lock()
@@ -157,9 +156,15 @@ func (pool *SSDBPool) ReturnDB(db *DBWrapper) error {
 
 	lock.Lock()
 	defer lock.Unlock()
-	pool.idlelist.PushBack(db)
-	pool.idlecount = pool.idlecount + 1
-	pool.usedcount = pool.usedcount - 1
+	if(db.Err()!=nil){
+		db.Close()
+		pool.usedcount = pool.usedcount - 1
+	}else{
+		pool.idlelist.PushBack(db)
+		pool.idlecount = pool.idlecount + 1
+		pool.usedcount = pool.usedcount - 1
+	}
+	
 	return nil
 }
 

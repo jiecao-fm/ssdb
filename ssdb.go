@@ -123,6 +123,10 @@ type SSDB struct {
 	conntimeout  time.Duration
 }
 
+func (db *SSDB)Err()error{
+	return db.conn.Err()
+}
+
 func (db *SSDB) Connect() error {
 	if db.conn != nil && db.conn.Err() == nil {
 		db.conn.Close()
