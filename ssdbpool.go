@@ -83,12 +83,12 @@ func (pool *SSDBPool) checkone() time.Time {
 		pool.idlelist.Remove(ele)
 		if err == nil {
 			pool.idlelist.PushBack(db)
-			db.last_check_time=time.Now()
+			db.last_check_time = time.Now()
 			return t
 		} else {
 			pool.idlecount = pool.idlecount - 1
-			pool.totalcount=pool.totalcount-1
-			return db.last_check_time.Add(-1*check_duration)
+			pool.totalcount = pool.totalcount - 1
+			return db.last_check_time.Add(-1 * check_duration)
 		}
 	}
 	return time.Now()
@@ -132,7 +132,6 @@ func (pool *SSDBPool) GetDB() (*DBWrapper, error) {
 	}
 }
 
-
 func (pool *SSDBPool) incr(incr_count int, heldlock bool) error {
 	if !heldlock {
 		lock.Lock()
@@ -156,15 +155,15 @@ func (pool *SSDBPool) ReturnDB(db *DBWrapper) error {
 
 	lock.Lock()
 	defer lock.Unlock()
-	if(db.Err()!=nil){
+	if db.Err() != nil {
 		db.Close()
 		pool.usedcount = pool.usedcount - 1
-	}else{
+	} else {
 		pool.idlelist.PushBack(db)
 		pool.idlecount = pool.idlecount + 1
 		pool.usedcount = pool.usedcount - 1
 	}
-	
+
 	return nil
 }
 
@@ -178,5 +177,5 @@ func (pool *SSDBPool) TotalCount() int {
 	return pool.totalcount
 }
 func (pool *SSDBPool) Close() {
-	
+
 }

@@ -153,21 +153,10 @@ func (c *conn) Receive() (res []bytes.Buffer, err error) {
 		if er != nil {
 			return nil, er
 		}
-		//		dataBytes := make([]byte, size)
-		//		count, er := c.reader.Read(dataBytes)
-		//		if count != size {
-		//			fmt.Println("read count != count")
-		//			left:=size-count
-		//			buf:=make([]byte,left)
-		//			readFully(c.reader)
-		//
-		//			return nil, nil
-		//		}
+
 		var dataBuf bytes.Buffer
-		//		dataBuf.Write(dataBytes)
 		readFully(c.reader, size, &dataBuf)
 		bufArray = append(bufArray, dataBuf)
-		//		fmt.Println(string(dataBuf))
 		for b, er := c.reader.ReadByte(); b != '\n'; b, er = c.reader.ReadByte() {
 			if er != nil {
 				return nil, er

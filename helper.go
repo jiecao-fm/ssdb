@@ -11,7 +11,7 @@ func BoolValue(rsp []bytes.Buffer) (bool, error) {
 		return false, fmt.Errorf(rsp[0].String())
 	}
 
-	return rsp[1].String() == "1", nil
+	return true, nil
 }
 func Int64(rsp []bytes.Buffer) (int64, error) {
 	if rsp[0].String() != "ok" {

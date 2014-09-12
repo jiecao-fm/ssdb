@@ -46,7 +46,7 @@ type Client interface {
 	ZSet(setname, key string, score int64) error
 	ZGet(setname, key string) (int64, error)
 	ZIncr(setname, key string, by int64) (value int64, err error)
-	ZDel(sentname, key string) error
+	ZDel(sentname, key string) (bool, error)
 	ZSize(setname string) (int64, error)
 	ZScan(setname, keystart string, score_start, score_end int64, limit int) (map[string]int64, error)
 	// name_start<name<=name_end
@@ -123,7 +123,7 @@ type SSDB struct {
 	conntimeout  time.Duration
 }
 
-func (db *SSDB)Err()error{
+func (db *SSDB) Err() error {
 	return db.conn.Err()
 }
 
@@ -143,10 +143,14 @@ func (db *SSDB) Close() {
 
 func (db *SSDB) Set(key string, value string) error {
 	resp, err := db.conn.Do("set", []interface{}{key, value})
-	if resp[0].String() != "ok" {
-		fmt.Printf("%s\n", resp[0].String())
+	if err != nil {
+		return err
 	}
-	return err
+	if resp[0].String() == "ok" {
+		return nil
+	} else {
+		return errors.New(resp[0].String())
+	}
 }
 
 func (db *SSDB) MultiSet(kvs []string) (bool, error) {
@@ -160,13 +164,9 @@ func (db *SSDB) MultiSet(kvs []string) (bool, error) {
 func (db *SSDB) Get(key string) (string, error) {
 	resp, err := db.conn.Do("get", []interface{}{key})
 	if err != nil {
-		fmt.Printf("%v\n", err)
 		return "", err
 	}
-	if resp[0].String() != "ok" {
-		fmt.Printf("get failed,%s\n", resp[0].String())
 
-	}
 	return StringValue(resp)
 }
 
@@ -234,8 +234,10 @@ func (db *SSDB) Exists(key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	return BoolValue(resp)
+	if resp[0].String() != "ok" {
+		return false, errors.New(resp[0].String())
+	}
+	return resp[1].String() == "1", nil
 
 }
 
@@ -258,13 +260,10 @@ func (db *SSDB) ZSet(setname, key string, score int64) error {
 func (db *SSDB) ZGet(setname, key string) (int64, error) {
 
 	resp, err := db.conn.Do("zget", []interface{}{setname, key})
-	if resp[0].String() != "ok" {
-		return 0, errors.New(resp[0].String())
-	}
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
-	return strconv.ParseInt(resp[1].String(), 10, 64)
+	return Int64(resp)
 }
 
 func (db *SSDB) ZIncr(setname, key string, by int64) (int64, error) {
@@ -274,22 +273,15 @@ func (db *SSDB) ZIncr(setname, key string, by int64) (int64, error) {
 		return 0, err
 	}
 
-	if resp[0].String() != "ok" {
-		return 0, errors.New(resp[0].String())
-	}
-
-	return strconv.ParseInt(resp[1].String(), 10, 64)
+	return Int64(resp)
 }
 
-func (db *SSDB) ZDel(setname, key string) error {
+func (db *SSDB) ZDel(setname, key string) (bool, error) {
 	resp, err := db.conn.Do("zdel", []interface{}{setname, key})
 	if err != nil {
-		return err
+		return false, err
 	}
-	if resp[0].String() != "ok" {
-		return errors.New(resp[0].String())
-	}
-	return nil
+	return BoolValue(resp)
 }
 
 func (db *SSDB) ZSize(setname string) (int64, error) {
@@ -297,12 +289,7 @@ func (db *SSDB) ZSize(setname string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if resp[0].String() != "ok" {
-		return 0, errors.New(resp[0].String())
-
-	}
-
-	return strconv.ParseInt(resp[1].String(), 10, 64)
+	return Int64(resp)
 }
 
 func (db *SSDB) ZScan(setname, key_start string, score_start, score_end int64, limit int) (map[string]int64, error) {
@@ -375,7 +362,7 @@ func (db *SSDB) ZExists(setname, key string) (bool, error) {
 	if resp[0].String() != "ok" {
 		return false, errors.New(resp[0].String())
 	}
-	return BoolValue(resp)
+	return resp[1].String() == "1", nil
 }
 
 func (db *SSDB) ZKeys(setname, key_start string, score_start, score_end int64, limit int) ([]string, error) {
@@ -427,26 +414,21 @@ func (db *SSDB) MultiZset(setname string, kvs map[string]int64) error {
 		kva = append(kva, k)
 		kva = append(kva, v)
 	}
-	resp, err := db.conn.Do("multi_zset", kva)
+	_, err := db.conn.Do("multi_zset", kva)
 	if err != nil {
 		return err
 	}
-	if "ok" != resp[0].String() {
-		return errors.New(resp[0].String())
-	}
+
 	return nil
 }
 
 func (db *SSDB) HSet(name, key, value string) (bool, error) {
 
-	resp, err := db.conn.Do("hset", []interface{}{name, key, value})
+	_, err := db.conn.Do("hset", []interface{}{name, key, value})
 	if err != nil {
 		return false, err
 	}
 
-	if resp[0].String() != "ok" {
-		return false, errors.New(resp[0].String())
-	}
 	return true, nil
 }
 
@@ -460,13 +442,11 @@ func (db *SSDB) HGet(name, key string) (string, error) {
 
 func (db *SSDB) HDel(name, key string) (bool, error) {
 
-	resp, err := db.conn.Do("hdel", []interface{}{name, key})
+	_, err := db.conn.Do("hdel", []interface{}{name, key})
 	if err != nil {
 		return false, err
 	}
-	if resp[0].String() != "ok" {
-		return false, errors.New(resp[0].String())
-	}
+
 	return true, nil
 }
 
@@ -484,8 +464,10 @@ func (db *SSDB) HExists(name, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	return BoolValue(resp)
+	if resp[0].String() != "ok" {
+		return false, errors.New(resp[0].String())
+	}
+	return resp[1].String() == "1", nil
 
 }
 
@@ -494,9 +476,7 @@ func (db *SSDB) HSize(name string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if resp[0].String() != "ok" {
-		return 0, errors.New(resp[0].String())
-	}
+
 	return Int64(resp)
 }
 
@@ -506,9 +486,6 @@ func (db *SSDB) HList(name_start, name_end string, limit int) ([]string, error) 
 		return nil, err
 	}
 
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
 	return StringArray(resp)
 }
 
@@ -518,9 +495,6 @@ func (db *SSDB) HRlist(name_start, name_end string, limit int) ([]string, error)
 		return nil, err
 	}
 
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
 	return StringArray(resp)
 }
 
@@ -530,9 +504,6 @@ func (db *SSDB) HKeys(name, key_start, key_end string, limit int) ([]string, err
 		return nil, err
 	}
 
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
 	return StringArray(resp)
 }
 
@@ -542,9 +513,6 @@ func (db *SSDB) HGetAll(name string) (map[string]string, error) {
 		return nil, err
 	}
 
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
 	return StringMap(resp)
 }
 
@@ -554,9 +522,6 @@ func (db *SSDB) HScan(name, key_start, key_end string, limit int) (map[string]st
 		return nil, err
 	}
 
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
 	return StringMap(resp)
 }
 
@@ -566,9 +531,6 @@ func (db *SSDB) HRscan(name, key_start, key_end string, limit int) (map[string]s
 		return nil, err
 	}
 
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
 	return StringMap(resp)
 }
 
@@ -577,10 +539,7 @@ func (db *SSDB) HClear(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if "ok" != resp[0].String() {
-		return false, errors.New(resp[0].String())
-	}
-	return true, nil
+	return BoolValue(resp)
 }
 
 func (db *SSDB) MultiHSet(name string, kvs []string) (bool, error) {
@@ -588,19 +547,13 @@ func (db *SSDB) MultiHSet(name string, kvs []string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if resp[0].String() != "ok" {
-		return false, errors.New(resp[0].String())
-	}
-	return resp[1].String() == "1", nil
+	return BoolValue(resp)
 }
 
 func (db *SSDB) MultiHGet(name string, keys []string) (map[string]string, error) {
 	resp, err := db.conn.Do("multi_hget", []interface{}{name, keys})
 	if err != nil {
 		return nil, err
-	}
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
 	}
 
 	return StringMap(resp)
@@ -620,20 +573,15 @@ func (db *SSDB) QPushFront(name, value string) (int64, error) {
 		fmt.Println("push front error")
 		return 0, err
 	}
-	if "ok" != resp[0].String() {
-		return 0, errors.New(resp[0].String())
-	}
-	res, er := Int64(resp)
-	return res, er
+
+	return Int64(resp)
 }
 func (db *SSDB) QPushBack(name, value string) (int64, error) {
 	resp, err := db.conn.Do("qpush_back", []interface{}{name, value})
 	if err != nil {
 		return 0, err
 	}
-	if "ok" != resp[0].String() {
-		return 0, errors.New(resp[0].String())
-	}
+
 	return Int64(resp)
 }
 func (db *SSDB) QPopFront(name string) (string, error) {
@@ -642,9 +590,7 @@ func (db *SSDB) QPopFront(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if "ok" != resp[0].String() {
-		return "", errors.New(resp[0].String())
-	}
+
 	return StringValue(resp)
 }
 func (db *SSDB) QPopBack(name string) (string, error) {
@@ -652,9 +598,7 @@ func (db *SSDB) QPopBack(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if "ok" != resp[0].String() {
-		return "", errors.New(resp[0].String())
-	}
+
 	return StringValue(resp)
 }
 func (db *SSDB) QSize(name string) (int64, error) {
@@ -662,9 +606,7 @@ func (db *SSDB) QSize(name string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if "ok" != resp[0].String() {
-		return 0, errors.New(resp[0].String())
-	}
+
 	return Int64(resp)
 }
 func (db *SSDB) QList(name_start, name_end string, limit int) ([]string, error) {
@@ -672,18 +614,13 @@ func (db *SSDB) QList(name_start, name_end string, limit int) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
+
 	return StringArray(resp)
 }
 func (db *SSDB) QRlist(name_start, name_end string, limit int) ([]string, error) {
 	resp, err := db.conn.Do("qrlist", []interface{}{name_start, name_end, limit})
 	if err != nil {
 		return nil, err
-	}
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
 	}
 	return StringArray(resp)
 }
@@ -692,20 +629,14 @@ func (db *SSDB) QClear(name string) (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	if "ok" != resp[0].String() {
-		return false, errors.New(resp[0].String())
-	}
-
-	return "ok" == resp[0].String(), nil
+	return BoolValue(resp)
 }
 func (db *SSDB) QFront(name string) (string, error) {
 	resp, err := db.conn.Do("qfront", []interface{}{name})
 	if err != nil {
 		return "", err
 	}
-	if "ok" != resp[0].String() {
-		return "", errors.New(resp[0].String())
-	}
+
 	return StringValue(resp)
 }
 func (db *SSDB) QBack(name string) (string, error) {
@@ -713,9 +644,7 @@ func (db *SSDB) QBack(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if "ok" != resp[0].String() {
-		return "", errors.New(resp[0].String())
-	}
+
 	return StringValue(resp)
 }
 func (db *SSDB) QGet(name string, index int64) (string, error) {
@@ -723,9 +652,7 @@ func (db *SSDB) QGet(name string, index int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if "ok" != resp[0].String() {
-		return "", errors.New(resp[0].String())
-	}
+
 	return StringValue(resp)
 }
 func (db *SSDB) QSlice(name string, begin, end int64) ([]string, error) {
@@ -733,8 +660,6 @@ func (db *SSDB) QSlice(name string, begin, end int64) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if "ok" != resp[0].String() {
-		return nil, errors.New(resp[0].String())
-	}
+
 	return StringArray(resp)
 }
