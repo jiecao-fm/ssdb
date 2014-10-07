@@ -298,7 +298,6 @@ func (db *SSDB) ZScan(setname, key_start string, score_start, score_end int64, l
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("zscan key_start %s\n", key_start)
 	if resp[0].String() != "ok" {
 		return nil, errors.New(resp[0].String())
 	}
