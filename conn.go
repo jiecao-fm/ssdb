@@ -155,13 +155,18 @@ func (c *conn) Receive() (res []bytes.Buffer, err error) {
 		}
 
 		var dataBuf bytes.Buffer
-		readFully(c.reader, size, &dataBuf)
-		bufArray = append(bufArray, dataBuf)
+		err := readFully(c.reader, size, &dataBuf)
+		if err != nil {
+			c.err = err
+			return nil, err
+		}
+		//read \r\n
 		for b, er := c.reader.ReadByte(); b != '\n'; b, er = c.reader.ReadByte() {
 			if er != nil {
-				return nil, er
+				fmt.Printf("%v\n", er)
 			}
 		}
+		bufArray = append(bufArray, dataBuf)
 	}
 
 	//never execute here
@@ -169,14 +174,19 @@ func (c *conn) Receive() (res []bytes.Buffer, err error) {
 	return bufArray[0:], nil
 }
 
-func readFully(reader *bufio.Reader, size int, buffer *bytes.Buffer) {
+func readFully(reader *bufio.Reader, size int, buffer *bytes.Buffer) error {
 	buf := make([]byte, size)
-	count, _ := reader.Read(buf)
+	count, err := reader.Read(buf)
+	if err != nil {
+		return err
+	}
+
 	if count == size {
 		buffer.Write(buf)
-		return
+		return nil
 	} else {
-		buffer.Write(buf[:count-1])
+		buffer.Write(buf[:count])
 		readFully(reader, size-count, buffer)
 	}
+	return nil
 }
